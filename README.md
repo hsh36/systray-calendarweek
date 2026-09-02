@@ -11,7 +11,7 @@ Das Tray-Icon zeigt die **Wochennummer direkt als Zahl** – kein Hovern nötig.
 - ✅ **Autostart:** Ein- und Austragen per Kommandozeile oder Kontextmenü
 - ✅ **Single Instance:** Ein zweiter Start bringt kein zweites Icon in den Tray
 - ✅ **Schlank:** 188 KB EXE, ~7 MB RAM, Start in ~0,4 s
-- ✅ **Keine Live-Updates:** Die Woche wird einmal beim Start berechnet (Programm läuft im Autostart und wird täglich neu gestartet)
+- ✅ **Aktualisiert sich selbst:** Um Mitternacht, nach dem Aufwachen aus dem Energiesparmodus und bei Zeitumstellung
 
 ## Voraussetzungen
 
@@ -130,6 +130,7 @@ systray-calendarweek/
 ├── SystrayApp.cs                # Unsichtbare Form, NotifyIcon, Kontextmenü
 ├── SystrayApp.Designer.cs       # Form-Grundeinstellungen
 ├── CalendarWeekHelper.cs        # ISO-8601-Wochenberechnung
+├── RefreshSchedule.cs           # Terminrechnung bis zur nächsten Mitternacht
 ├── TrayIconFactory.cs           # Zeichnet die Wochennummer ins Icon
 ├── AutostartHelper.cs           # Registry-Integration (HKCU)
 ├── ConsoleOutput.cs             # Konsolenausgabe für eine WinExe
@@ -150,7 +151,9 @@ systray-calendarweek/
 
 **Arbeitssatz-Trim im Leerlauf.** Der Start zieht einmalig ~45 MB Runtime- und WinForms-Seiten in den Speicher, die eine Tray-Anwendung danach nicht mehr anfasst. `MemoryTrimmer` gibt sie frei, sobald die Anwendung idle ist – danach bleiben ~7 MB. Windows holt die Seiten bei Bedarf (Kontextmenü, Dialog) zurück.
 
-**Keine Zeitsteuerung.** Die Woche wird beim Start berechnet und nicht aktualisiert. Läuft das Programm über einen Wochenwechsel hinweg durch, zeigt es die alte Woche, bis es neu gestartet wird.
+**Aktualisierung über drei Wege statt nur einem Timer.** Ein Timer allein reicht nicht: Schläft der Rechner über Mitternacht, feuert er verspätet, und eine manuelle Zeitänderung sieht er gar nicht. Deshalb hängt die Anwendung zusätzlich an `SystemEvents.TimeChanged` und `SystemEvents.PowerModeChanged`. Diese Rückrufe kommen auf einem fremden Thread und werden über `BeginInvoke` auf den UI-Thread geholt, weil `NotifyIcon` und `Timer` sonst nicht angefasst werden dürfen.
+
+**Der Timer wird nach jedem Feuern neu gestellt,** statt einmal auf 24 Stunden. Bei einer Zeitumstellung ist die Spanne bis zur nächsten Mitternacht 23 oder 25 Stunden; durch das Neustellen korrigiert sich der Termin selbst, und ein zu frühes Feuern bleibt folgenlos, weil `RefreshCalendarWeek()` bei unveränderter Woche nichts tut.
 
 ## Tests
 
@@ -181,11 +184,10 @@ Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name Cal
 
 Zeigt er auf einen alten Pfad, `--register-autostart` am neuen Ort erneut ausführen.
 
-**Falsche Woche:** Läuft das Programm seit dem letzten Wochenwechsel durch? Beenden und neu starten.
+**Falsche Woche:** Die Anzeige wird um Mitternacht nachgezogen. Stimmt sie trotzdem nicht, prüfe Datum und Zeitzone von Windows – die Berechnung nutzt die lokale Systemzeit.
 
 ## Mögliche Erweiterungen
 
-- Automatische Aktualisierung um Mitternacht (`SystemEvents.TimeChanged` + Timer)
 - Sprachumschaltung DE/EN
 - Konfigurierbare Icon-Farbe
 

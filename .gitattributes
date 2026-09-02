@@ -1,0 +1,9 @@
+# Zeilenenden im Repository normalisieren, im Arbeitsverzeichnis nativ auschecken
+* text=auto
+
+*.cs      text diff=csharp
+*.csproj  text
+*.manifest text
+*.md      text
+
+*.ico     binary
